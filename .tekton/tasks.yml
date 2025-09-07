@@ -1,0 +1,84 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cleanup
+spec:
+  description: Clean up resources and temporary files
+  steps:
+    - name: cleanup-workspace
+      image: alpine:latest
+      script: |
+        #!/bin/sh
+        echo "Cleaning up workspace..."
+        rm -rf /tmp/*
+        echo "Cleanup completed successfully"
+    - name: cleanup-docker
+      image: docker:latest
+      script: |
+        #!/bin/sh
+        echo "Cleaning up Docker images..."
+        docker system prune -f
+        echo "Docker cleanup completed"
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: nose-test
+spec:
+  description: Run unit tests using nose framework
+  workspaces:
+    - name: source
+  steps:
+    - name: install-dependencies
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/bash
+        echo "Installing dependencies..."
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        echo "Dependencies installed successfully"
+    
+    - name: run-nose-tests
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/bash
+        echo "Running nose tests..."
+        nosetests tests/ --with-coverage --cover-package=src --cover-erase --cover-xml
+        echo "Tests completed successfully"
+    
+    - name: test-report
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/bash
+        echo "Generating test report..."
+        if [ -f coverage.xml ]; then
+          echo "Coverage report generated successfully"
+          cat coverage.xml
+        else
+          echo "No coverage report found"
+        fi
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-and-push
+spec:
+  description: Build and push Docker image
+  params:
+    - name: IMAGE
+      description: Name of the image to build
+      default: "devops-demo"
+  workspaces:
+    - name: source
+  steps:
+    - name: build-image
+      image: gcr.io/kaniko-project/executor:latest
+      args:
+        - --context=$(workspaces.source.path)
+        - --dockerfile=$(workspaces.source.path)/Dockerfile
+        - --destination=$(params.IMAGE):latest
