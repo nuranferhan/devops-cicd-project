@@ -1,16 +1,23 @@
 import unittest
 import json
-import sys
 import os
+import sys
 
-# Add the parent directory to Python path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-src_dir = os.path.join(parent_dir, 'src')
-sys.path.insert(0, src_dir)
+# Test dosyasının bulunduğu dizini al
+test_dir = os.path.dirname(os.path.abspath(__file__))
+# Proje root dizinini al  
+project_root = os.path.dirname(test_dir)
+# src dizinini Python path'e ekle
+sys.path.insert(0, os.path.join(project_root, 'src'))
 
-# Now import the app
-from app import app
+# Import app
+try:
+    from app import app
+except ImportError as e:
+    print(f"Import error: {e}")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Python path: {sys.path}")
+    raise
 
 class TestApp(unittest.TestCase):
     
